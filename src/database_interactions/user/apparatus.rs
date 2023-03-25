@@ -1,12 +1,10 @@
 use mongodb::{
-    bson::{doc, oid::ObjectId, Bson, Document},
-    options::UpdateOptions,
+    bson::{doc, oid::ObjectId, Bson, Document, Uuid},
     Client, Collection,
 };
-use uuid::Uuid;
 
 pub struct Apparatus {
-    id: String,
+    id: Uuid,
     name: Option<String>,
     description: Option<String>,
 
@@ -23,10 +21,10 @@ impl Apparatus {
         repetitions: &Option<u8>,
         sets: &Option<u8>,
         notes: &Option<String>,
-        id: Option<String>,
+        id: Option<Uuid>,
     ) -> Apparatus {
         Apparatus {
-            id: id.unwrap_or(Uuid::new_v4().to_string()),
+            id: id.unwrap_or(Uuid::new()),
             name: name.clone(),
             description: description.clone(),
             repetitions: repetitions.clone(),
@@ -35,7 +33,7 @@ impl Apparatus {
         }
     }
 
-    pub async fn database_insert(self: Apparatus, client: &Client, userid: String) -> String {
+    pub async fn database_insert(self: Apparatus, client: &Client, userid: String) -> Option<Uuid> {
         let user_collection: Collection<Document> = client.database("prod").collection("users");
 
         let update_result = user_collection.update_one(
@@ -58,18 +56,18 @@ impl Apparatus {
         );
 
         if update_result.await.unwrap().modified_count == 0 {
-            "".to_string()
+            None
         } else {
-            self.id
+            Some(self.id)
         }
     }
 
     pub async fn database_update(
         self: Apparatus,
         client: &Client,
-        userid: String,
-        apparatusid: String,
-    ) -> String {
+        userid: ObjectId,
+        apparatusid: Uuid,
+    ) -> Option<Uuid> {
         let user_collection: Collection<Document> = client.database("prod").collection("users");
 
         let bson_reps = match self.repetitions {
@@ -102,7 +100,7 @@ impl Apparatus {
         let update_result = user_collection
             .update_one(
                 doc! {
-                    "_id": ObjectId::parse_str(&userid).expect("Failed to parse user id"),
+                    "_id": &userid,
                     "apparatus._id": apparatusid,
                 },
                 doc! {
@@ -113,9 +111,9 @@ impl Apparatus {
             .await;
 
         if update_result.unwrap().modified_count == 0 {
-            "Mööp".to_string()
+            None
         } else {
-            self.id
+            Some(self.id)
         }
     }
 }

@@ -3,6 +3,7 @@ mod dtos;
 
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use mongodb::{
+    bson::{oid::ObjectId, Uuid},
     options::{ClientOptions, ResolverConfig},
     Client,
 };
@@ -39,12 +40,19 @@ async fn create_apparatus(info: web::Json<dtos::CreateApparatus>) -> impl Respon
 
     let apparatus_id = apparatus.database_insert(&client, userid).await;
 
-    HttpResponse::Ok().body(apparatus_id)
+    HttpResponse::Ok().body(
+        apparatus_id
+            .expect("Failed to insert apparatus")
+            .to_string(),
+    )
 }
 
 async fn patch_apparatus(info: web::Json<dtos::PatchApparatus>) -> impl Responder {
-    let userid: String = info.userid.to_string();
-    let apparatusid: String = info.apparatusid.to_string();
+    let u_id: String = info.userid.to_string();
+    let userid: ObjectId = ObjectId::parse_str(&u_id).expect("Failed to parse user id");
+
+    let a_id = info.apparatusid.to_string();
+    let apparatusid = Uuid::parse_str(&a_id).expect("Failed to parse apparatus id");
 
     let apparatus = database_interactions::user::apparatus::Apparatus::new(
         &info.name,
@@ -52,16 +60,20 @@ async fn patch_apparatus(info: web::Json<dtos::PatchApparatus>) -> impl Responde
         &info.repetitions,
         &info.sets,
         &info.notes,
-        Some(apparatusid.clone()),
+        Some(apparatusid),
     );
 
     let client = get_new_client().await;
 
-    let apparatus_id: String = apparatus
+    let apparatus_id: Option<Uuid> = apparatus
         .database_update(&client, userid, apparatusid)
         .await;
 
-    HttpResponse::Ok().body(apparatus_id)
+    HttpResponse::Ok().body(
+        apparatus_id
+            .expect("Failed to update apparatus")
+            .to_string(),
+    )
 }
 
 async fn get_new_client() -> Client {

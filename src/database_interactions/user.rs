@@ -1,11 +1,14 @@
-pub mod apparatus;
 use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
 };
-use std::{any::Any, env::args_os};
-
 use mongodb::{bson::doc, results::InsertOneResult, Client};
+use std::vec;
+
+use self::{apparatus::Apparatus, trainingssession::Trainingssession};
+
+pub mod apparatus;
+pub mod trainingssession;
 
 pub struct User {
     // User Base Data
@@ -14,7 +17,8 @@ pub struct User {
     password: String,
 
     // User Profile Data
-    apparatus: Box<[apparatus::Apparatus]>,
+    apparatus: Vec<Apparatus>,
+    sessions: Vec<Trainingssession>,
 }
 
 impl User {
@@ -44,7 +48,8 @@ impl User {
             name: name.to_string(),
             email: email.to_string(),
             password: hashed_password,
-            apparatus: Box::new([]),
+            apparatus: vec![],
+            sessions: vec![],
         }
     }
 
