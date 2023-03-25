@@ -23,15 +23,45 @@ async fn signup(info: web::Json<dtos::SignupUser>) -> impl Responder {
     HttpResponse::Ok().body(inserted_user.inserted_id.to_string())
 }
 
-async fn create_databases(client: &Client) {
-    let new_user = database_interactions::user::User::new(
-        &String::from("John"),
-        &String::from("john@doe.com"),
-        &String::from("password"),
+async fn create_apparatus(info: web::Json<dtos::CreateApparatus>) -> impl Responder {
+    let userid: String = info.userid.to_string();
+
+    let apparatus = database_interactions::user::apparatus::Apparatus::new(
+        &Some(info.name.to_string()),
+        &Some(info.description.to_string()),
+        &Some(info.repetitions),
+        &Some(info.sets),
+        &Some(info.notes.to_string()),
+        None,
     );
 
-    let insert_result = new_user.database_insert(client).await;
-    println!("Insert Result ID: {:?}", insert_result.inserted_id);
+    let client = get_new_client().await;
+
+    let apparatus_id = apparatus.database_insert(&client, userid).await;
+
+    HttpResponse::Ok().body(apparatus_id)
+}
+
+async fn patch_apparatus(info: web::Json<dtos::PatchApparatus>) -> impl Responder {
+    let userid: String = info.userid.to_string();
+    let apparatusid: String = info.apparatusid.to_string();
+
+    let apparatus = database_interactions::user::apparatus::Apparatus::new(
+        &info.name,
+        &info.description,
+        &info.repetitions,
+        &info.sets,
+        &info.notes,
+        Some(apparatusid.clone()),
+    );
+
+    let client = get_new_client().await;
+
+    let apparatus_id: String = apparatus
+        .database_update(&client, userid, apparatusid)
+        .await;
+
+    HttpResponse::Ok().body(apparatus_id)
 }
 
 async fn get_new_client() -> Client {
@@ -43,7 +73,6 @@ async fn get_new_client() -> Client {
             .expect("Failed to parse options");
 
     let client = Client::with_options(options).expect("Failed to initialize client.");
-    println!("Connected to MongoDB!");
 
     client
 }
@@ -53,7 +82,9 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
         App::new()
             .route("/", web::get().to(index))
-            .route("/signup", web::post().to(signup))
+            .route("/user", web::post().to(signup))
+            .route("/apparatus", web::post().to(create_apparatus))
+            .route("/apparatus", web::patch().to(patch_apparatus))
     })
     .bind(("127.0.0.1", 3000))?
     .run()
